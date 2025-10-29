@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import RecorderBar from '../components/RecorderBar';
 import RecentNotes from '../components/RecentNotes';
 import EditNoteModal from '../components/EditNoteModal';
@@ -17,6 +17,7 @@ import { useAuth } from '../lib/auth';
 
 export default function Home() {
   const { user, loading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
   const [currentBook, setCurrentBook] = useState<string>('');
   const [showBookPrompt, setShowBookPrompt] = useState(false);
   const [newBookTitle, setNewBookTitle] = useState('');
@@ -26,6 +27,8 @@ export default function Home() {
   const [editText, setEditText] = useState('');
   const [swipedNoteId, setSwipedNoteId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [confirmationMessage, setConfirmationMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const router = useRouter();
 
   useEffect(() => {
@@ -43,6 +46,34 @@ export default function Home() {
       loadCurrentBookNotes();
     }
   }, [currentBook, user]);
+
+  useEffect(() => {
+    // Handle email confirmation and error messages from URL
+    const confirmed = searchParams.get('confirmed');
+    const error = searchParams.get('error');
+    
+    if (confirmed === 'true') {
+      setConfirmationMessage('Email confirmed successfully! You are now signed in.');
+      // Clear the URL parameter
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('confirmed');
+      window.history.replaceState({}, '', newUrl.pathname);
+      
+      // Clear message after 5 seconds
+      setTimeout(() => setConfirmationMessage(''), 5000);
+    }
+    
+    if (error) {
+      setErrorMessage(decodeURIComponent(error));
+      // Clear the URL parameter
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('error');
+      window.history.replaceState({}, '', newUrl.pathname);
+      
+      // Clear message after 8 seconds
+      setTimeout(() => setErrorMessage(''), 8000);
+    }
+  }, [searchParams]);
 
   const initializeApp = async () => {
     try {
@@ -203,6 +234,30 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
       <Header onGoToBooks={handleGoToBooks} />
+
+      {/* Confirmation Message */}
+      {confirmationMessage && (
+        <div className="mx-4 mt-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-md">
+          <div className="flex">
+            <svg className="w-5 h-5 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            {confirmationMessage}
+          </div>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {errorMessage && (
+        <div className="mx-4 mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">
+          <div className="flex">
+            <svg className="w-5 h-5 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            {errorMessage}
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="px-4 py-6">
