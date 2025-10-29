@@ -2,10 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { Book } from '../../lib/types';
-import { dbManager } from '../../lib/db';
+import { cloudDBManager } from '../../lib/cloudDB';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../../lib/auth';
+import AuthModal from '../../components/auth/AuthModal';
+import LoadingScreen from '../../components/LoadingScreen';
 
 export default function BooksPage() {
+  const { user, loading: authLoading } = useAuth();
   const [books, setBooks] = useState<Book[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddBook, setShowAddBook] = useState(false);
@@ -13,13 +17,18 @@ export default function BooksPage() {
   const router = useRouter();
 
   useEffect(() => {
-    loadBooks();
-  }, []);
+    if (user) {
+      loadBooks();
+      cloudDBManager.reset();
+    } else {
+      setIsLoading(false);
+    }
+  }, [user]);
 
   const loadBooks = async () => {
     try {
-      await dbManager.initDB();
-      const allBooks = await dbManager.getAllBooks();
+      await cloudDBManager.initDB();
+      const allBooks = await cloudDBManager.getAllBooks();
       setBooks(allBooks);
     } catch (error) {
       console.error('Failed to load books:', error);
@@ -38,7 +47,7 @@ export default function BooksPage() {
         lastUsed: new Date(),
       };
 
-      await dbManager.saveBook(book);
+      await cloudDBManager.saveBook(book);
       await loadBooks();
       setNewBookTitle('');
       setShowAddBook(false);
@@ -49,7 +58,7 @@ export default function BooksPage() {
 
   const handleSelectBook = async (bookTitle: string) => {
     try {
-      await dbManager.updateBookLastUsed(bookTitle);
+      await cloudDBManager.updateBookLastUsed(bookTitle);
       localStorage.setItem('currentBook', bookTitle);
       router.push('/');
     } catch (error) {
@@ -61,12 +70,16 @@ export default function BooksPage() {
     router.push(`/books/${encodeURIComponent(bookTitle)}`);
   };
 
+  if (authLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!user) {
+    return <AuthModal />;
+  }
+
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading books...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (

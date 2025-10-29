@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
-import { dbManager } from '../lib/db';
+import { cloudDBManager } from '../lib/cloudDB';
 import { Note } from '../lib/types';
 
 interface RecorderBarProps {
@@ -52,15 +52,14 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
 
     setIsSaving(true);
     try {
-      const note: Note = {
-        id: Date.now().toString(),
+      const note = {
         bookTitle: currentBook,
         text: text.trim(),
         createdAt: new Date(),
       };
 
-      await dbManager.saveNote(note);
-      await dbManager.updateBookLastUsed(currentBook);
+      await cloudDBManager.saveNote(note);
+      await cloudDBManager.updateBookLastUsed(currentBook);
       
       clearTranscript();
       

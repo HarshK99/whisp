@@ -8,10 +8,15 @@ import EditNoteModal from '../components/EditNoteModal';
 import BookSelectionModal from '../components/BookSelectionModal';
 import ReadyToRecord from '../components/ReadyToRecord';
 import SelectBookPrompt from '../components/SelectBookPrompt';
-import { dbManager } from '../lib/db';
+import LoadingScreen from '../components/LoadingScreen';
+import Header from '../components/Header';
+import AuthModal from '../components/auth/AuthModal';
+import { cloudDBManager } from '../lib/cloudDB';
 import { Book, Note } from '../lib/types';
+import { useAuth } from '../lib/auth';
 
 export default function Home() {
+  const { user, loading: authLoading } = useAuth();
   const [currentBook, setCurrentBook] = useState<string>('');
   const [showBookPrompt, setShowBookPrompt] = useState(false);
   const [newBookTitle, setNewBookTitle] = useState('');
@@ -24,21 +29,27 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    initializeApp();
-  }, []);
+    if (user) {
+      initializeApp();
+      // Reset cloudDBManager when user changes
+      cloudDBManager.reset();
+    } else {
+      setIsLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    if (currentBook) {
+    if (currentBook && user) {
       loadCurrentBookNotes();
     }
-  }, [currentBook]);
+  }, [currentBook, user]);
 
   const initializeApp = async () => {
     try {
-      await dbManager.initDB();
+      await cloudDBManager.initDB();
       
       // Load recent books
-      const books = await dbManager.getAllBooks();
+      const books = await cloudDBManager.getAllBooks();
       setRecentBooks(books.slice(0, 3)); // Show top 3 recent books
       
       // Check for stored current book
@@ -60,7 +71,7 @@ export default function Home() {
     if (!currentBook) return;
     
     try {
-      const notes = await dbManager.getNotesByBook(currentBook);
+      const notes = await cloudDBManager.getNotesByBook(currentBook);
       setCurrentBookNotes(notes.slice(0, 3)); // Show last 3 notes
     } catch (error) {
       console.error('Failed to load current book notes:', error);
@@ -74,12 +85,12 @@ export default function Home() {
   const handleSelectExistingBook = async (bookTitle: string) => {
     setCurrentBook(bookTitle);
     localStorage.setItem('currentBook', bookTitle);
-    await dbManager.updateBookLastUsed(bookTitle);
+    await cloudDBManager.updateBookLastUsed(bookTitle);
     setShowBookPrompt(false);
     
     // Load notes for the selected book
     try {
-      const notes = await dbManager.getNotesByBook(bookTitle);
+      const notes = await cloudDBManager.getNotesByBook(bookTitle);
       setCurrentBookNotes(notes.slice(0, 3));
     } catch (error) {
       console.error('Failed to load current book notes:', error);
@@ -96,14 +107,14 @@ export default function Home() {
         lastUsed: new Date(),
       };
 
-      await dbManager.saveBook(book);
+      await cloudDBManager.saveBook(book);
       setCurrentBook(newBookTitle.trim());
       localStorage.setItem('currentBook', newBookTitle.trim());
       setNewBookTitle('');
       setShowBookPrompt(false);
       
       // Refresh recent books
-      const books = await dbManager.getAllBooks();
+      const books = await cloudDBManager.getAllBooks();
       setRecentBooks(books.slice(0, 3));
       
       // Load notes for the new book (will be empty initially)
@@ -131,7 +142,7 @@ export default function Home() {
         text: editText.trim(),
       };
       
-      await dbManager.updateNote(updatedNote);
+      await cloudDBManager.updateNote(updatedNote);
       await loadCurrentBookNotes();
       setEditingNote(null);
       setEditText('');
@@ -144,7 +155,7 @@ export default function Home() {
     if (!confirm('Are you sure you want to delete this note?')) return;
 
     try {
-      await dbManager.deleteNote(noteId);
+      await cloudDBManager.deleteNote(noteId);
       await loadCurrentBookNotes();
       setSwipedNoteId(null);
     } catch (error) {
@@ -176,48 +187,25 @@ export default function Home() {
     document.addEventListener('touchend', handleSwipeEnd);
   };
 
+  if (authLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!user) {
+    return <AuthModal />;
+  }
+
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-white animate-pulse" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-              <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-            </svg>
-          </div>
-          <div className="text-gray-600">Loading Whisp...</div>
-        </div>
-      </div>
-    );
-  };
+    return <LoadingScreen />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-40">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Whisp</h1>
-              <p className="text-sm text-gray-600 mt-1">Voice notes for your books</p>
-            </div>
-            <button
-              onClick={handleGoToBooks}
-              className="flex items-center px-4 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-            >
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
-              </svg>
-              Books
-            </button>
-          </div>
-        </div>
-      </div>
+      <Header onGoToBooks={handleGoToBooks} />
 
       {/* Main Content */}
-      <div className="px-4 py-8">
-        {currentBook ? (
+      <div className="px-4 py-8">{currentBook ? (
           <>
             {/* Show Ready to Record only when no notes exist */}
             {currentBookNotes.length === 0 && (
