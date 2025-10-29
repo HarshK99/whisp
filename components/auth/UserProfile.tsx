@@ -22,14 +22,9 @@ export default function UserProfile() {
     <div className="relative">
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="flex items-center space-x-2 bg-blue-500 text-white px-3 py-2 rounded-full hover:bg-blue-600 transition-colors"
+        className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-sm font-semibold text-white hover:bg-blue-600 transition-colors"
       >
-        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-sm font-semibold">
-          {getInitials(user.email || 'U')}
-        </div>
-        <span className="hidden sm:block text-sm font-medium">
-          {user.email?.split('@')[0]}
-        </span>
+        {getInitials(user.email || 'U')}
       </button>
 
       {showDropdown && (

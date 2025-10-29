@@ -27,7 +27,7 @@ export default function RecentNotes({
   if (!currentBook || notes.length === 0) return null;
 
   return (
-    <div className="mt-12 mb-8">
+    <div className="mt-4 mb-8">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">Recent Notes</h3>
         <button
