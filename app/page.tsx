@@ -3,6 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import RecorderBar from '../components/RecorderBar';
+import RecentNotes from '../components/RecentNotes';
+import EditNoteModal from '../components/EditNoteModal';
+import BookSelectionModal from '../components/BookSelectionModal';
+import ReadyToRecord from '../components/ReadyToRecord';
+import SelectBookPrompt from '../components/SelectBookPrompt';
 import { dbManager } from '../lib/db';
 import { Book, Note } from '../lib/types';
 
@@ -12,6 +17,9 @@ export default function Home() {
   const [newBookTitle, setNewBookTitle] = useState('');
   const [recentBooks, setRecentBooks] = useState<Book[]>([]);
   const [currentBookNotes, setCurrentBookNotes] = useState<Note[]>([]);
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [editText, setEditText] = useState('');
+  const [swipedNoteId, setSwipedNoteId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -109,6 +117,65 @@ export default function Home() {
     router.push('/books');
   };
 
+  const handleEditNote = (note: Note) => {
+    setEditingNote(note);
+    setEditText(note.text);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingNote || !editText.trim()) return;
+
+    try {
+      const updatedNote: Note = {
+        ...editingNote,
+        text: editText.trim(),
+      };
+      
+      await dbManager.updateNote(updatedNote);
+      await loadCurrentBookNotes();
+      setEditingNote(null);
+      setEditText('');
+    } catch (error) {
+      console.error('Failed to update note:', error);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!confirm('Are you sure you want to delete this note?')) return;
+
+    try {
+      await dbManager.deleteNote(noteId);
+      await loadCurrentBookNotes();
+      setSwipedNoteId(null);
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+    }
+  };
+
+  const handleSwipeStart = (e: React.TouchEvent, noteId: string) => {
+    const touch = e.touches[0];
+    const startX = touch.clientX;
+    
+    const handleSwipeMove = (moveEvent: TouchEvent) => {
+      const currentTouch = moveEvent.touches[0];
+      const diffX = startX - currentTouch.clientX;
+      
+      if (diffX > 50) { // Swipe threshold
+        setSwipedNoteId(noteId);
+        document.removeEventListener('touchmove', handleSwipeMove);
+        document.removeEventListener('touchend', handleSwipeEnd);
+      }
+    };
+    
+    const handleSwipeEnd = () => {
+      document.removeEventListener('touchmove', handleSwipeMove);
+      document.removeEventListener('touchend', handleSwipeEnd);
+    };
+    
+    document.addEventListener('touchmove', handleSwipeMove);
+    document.addEventListener('touchend', handleSwipeEnd);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -151,142 +218,53 @@ export default function Home() {
       {/* Main Content */}
       <div className="px-4 py-8">
         {currentBook ? (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-10 h-10 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-              </svg>
-            </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Ready to Record</h2>
-            <p className="text-gray-600 mb-8">
-              Recording notes for <span className="font-medium text-gray-900">"{currentBook}"</span>
-            </p>
-          </div>
+          <>
+            {/* Show Ready to Record only when no notes exist */}
+            {currentBookNotes.length === 0 && (
+              <ReadyToRecord currentBook={currentBook} />
+            )}
+          </>
         ) : (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/>
-              </svg>
-            </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Select a Book</h2>
-            <p className="text-gray-600 mb-8">Choose a book to start recording your voice notes</p>
-            <button
-              onClick={handleBookChange}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Choose Book
-            </button>
-          </div>
+          <SelectBookPrompt onBookChange={handleBookChange} />
         )}
 
         {/* Recent Notes for Current Book */}
-        {currentBook && currentBookNotes.length > 0 && (
-          <div className="mt-12 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Recent Notes</h3>
-              <button
-                onClick={() => router.push(`/books/${encodeURIComponent(currentBook)}`)}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                View All
-              </button>
-            </div>
-            <div className="space-y-3">
-              {currentBookNotes.map((note) => (
-                <div
-                  key={note.id}
-                  className="bg-white rounded-xl shadow-sm border border-gray-200 p-4"
-                >
-                  <p className="text-gray-900 text-sm leading-relaxed overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                    {note.text}
-                  </p>
-                  <div className="mt-2 text-xs text-gray-500">
-                    {new Date(note.createdAt).toLocaleString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <RecentNotes
+          currentBook={currentBook}
+          notes={currentBookNotes}
+          swipedNoteId={swipedNoteId}
+          onSwipeStart={handleSwipeStart}
+          onSwipeCancel={() => setSwipedNoteId(null)}
+          onEdit={handleEditNote}
+          onDelete={handleDeleteNote}
+          onViewAll={() => router.push(`/books/${encodeURIComponent(currentBook)}`)}
+        />
       </div>
 
+      {/* Edit Note Modal */}
+      <EditNoteModal
+        note={editingNote}
+        editText={editText}
+        onEditTextChange={setEditText}
+        onSave={handleSaveEdit}
+        onCancel={() => {
+          setEditingNote(null);
+          setEditText('');
+        }}
+      />
+
       {/* Book Selection Modal */}
-      {showBookPrompt && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl w-full max-w-md max-h-96 flex flex-col">
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">Select or Add Book</h3>
-              <p className="text-sm text-gray-600 mt-1">Choose a book to record notes for</p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-              {/* Recent Books */}
-              {recentBooks.length > 0 && (
-                <div className="p-6 border-b">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Recent Books</h4>
-                  <div className="space-y-2">
-                    {recentBooks.map((book) => (
-                      <button
-                        key={book.title}
-                        onClick={() => handleSelectExistingBook(book.title)}
-                        className="w-full text-left p-3 rounded-lg hover:bg-gray-50 border border-gray-200 transition-colors"
-                      >
-                        <div className="font-medium text-gray-900">{book.title}</div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Last used: {new Date(book.lastUsed).toLocaleDateString()}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Add New Book */}
-              <div className="p-6">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">Add New Book</h4>
-                <input
-                  type="text"
-                  value={newBookTitle}
-                  onChange={(e) => setNewBookTitle(e.target.value)}
-                  placeholder="Enter book title..."
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleCreateNewBook();
-                    }
-                  }}
-                />
-                <button
-                  onClick={handleCreateNewBook}
-                  disabled={!newBookTitle.trim()}
-                  className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                >
-                  Create & Select
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 border-t flex gap-3">
-              <button
-                onClick={handleGoToBooks}
-                className="flex-1 px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
-              >
-                Manage Books
-              </button>
-              {currentBook && (
-                <button
-                  onClick={() => setShowBookPrompt(false)}
-                  className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <BookSelectionModal
+        show={showBookPrompt}
+        recentBooks={recentBooks}
+        newBookTitle={newBookTitle}
+        onNewBookTitleChange={setNewBookTitle}
+        onSelectExistingBook={handleSelectExistingBook}
+        onCreateNewBook={handleCreateNewBook}
+        onGoToBooks={handleGoToBooks}
+        onClose={() => setShowBookPrompt(false)}
+        hasCurrentBook={!!currentBook}
+      />
 
       {/* Recorder Bar */}
       <RecorderBar 

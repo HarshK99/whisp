@@ -135,12 +135,6 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
                 {currentBook || 'No book selected'}
               </div>
             </div>
-            <button
-              onClick={onBookChange}
-              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-            >
-              Change
-            </button>
           </div>
 
           {/* Error message */}
