@@ -3,9 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Note } from '../../../lib/types';
-import { dbManager } from '../../../lib/db';
+import { cloudDBManager } from '../../../lib/cloudDB';
+import { useAuth } from '../../../lib/auth';
+import AuthModal from '../../../components/auth/AuthModal';
+import LoadingScreen from '../../../components/LoadingScreen';
 
 export default function BookNotesPage() {
+  const { user, loading: authLoading } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
@@ -16,13 +20,18 @@ export default function BookNotesPage() {
   const bookTitle = decodeURIComponent(params.bookTitle as string);
 
   useEffect(() => {
-    loadNotes();
-  }, [bookTitle]);
+    if (user && bookTitle) {
+      loadNotes();
+      cloudDBManager.reset();
+    } else {
+      setIsLoading(false);
+    }
+  }, [user, bookTitle]);
 
   const loadNotes = async () => {
     try {
-      await dbManager.initDB();
-      const bookNotes = await dbManager.getNotesByBook(bookTitle);
+      await cloudDBManager.initDB();
+      const bookNotes = await cloudDBManager.getNotesByBook(bookTitle);
       setNotes(bookNotes);
     } catch (error) {
       console.error('Failed to load notes:', error);
@@ -45,7 +54,7 @@ export default function BookNotesPage() {
         text: editText.trim(),
       };
       
-      await dbManager.updateNote(updatedNote);
+      await cloudDBManager.updateNote(updatedNote);
       await loadNotes();
       setEditingNote(null);
       setEditText('');
@@ -58,7 +67,7 @@ export default function BookNotesPage() {
     if (!confirm('Are you sure you want to delete this note?')) return;
 
     try {
-      await dbManager.deleteNote(noteId);
+      await cloudDBManager.deleteNote(noteId);
       await loadNotes();
     } catch (error) {
       console.error('Failed to delete note:', error);
@@ -70,12 +79,16 @@ export default function BookNotesPage() {
     router.push('/');
   };
 
+  if (authLoading) {
+    return <LoadingScreen />;
+  }
+
+  if (!user) {
+    return <AuthModal />;
+  }
+
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading notes...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (
