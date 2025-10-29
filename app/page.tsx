@@ -200,12 +200,13 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-40">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
       <Header onGoToBooks={handleGoToBooks} />
 
       {/* Main Content */}
-      <div className="px-4 py-8">{currentBook ? (
+      <div className="px-4 py-6">
+        {currentBook ? (
           <>
             {/* Show Ready to Record only when no notes exist */}
             {currentBookNotes.length === 0 && (
