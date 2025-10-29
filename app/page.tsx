@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import RecorderBar from '../components/RecorderBar';
 import RecentNotes from '../components/RecentNotes';
 import EditNoteModal from '../components/EditNoteModal';
@@ -11,13 +11,13 @@ import SelectBookPrompt from '../components/SelectBookPrompt';
 import LoadingScreen from '../components/LoadingScreen';
 import Header from '../components/Header';
 import AuthModal from '../components/auth/AuthModal';
+import NotificationHandler from '../components/NotificationHandler';
 import { cloudDBManager } from '../lib/cloudDB';
 import { Book, Note } from '../lib/types';
 import { useAuth } from '../lib/auth';
 
 export default function Home() {
   const { user, loading: authLoading } = useAuth();
-  const searchParams = useSearchParams();
   const [currentBook, setCurrentBook] = useState<string>('');
   const [showBookPrompt, setShowBookPrompt] = useState(false);
   const [newBookTitle, setNewBookTitle] = useState('');
@@ -47,55 +47,33 @@ export default function Home() {
     }
   }, [currentBook, user]);
 
-  useEffect(() => {
-    // Handle email confirmation and error messages from URL
-    const confirmed = searchParams.get('confirmed');
-    const error = searchParams.get('error');
-    
-    if (confirmed === 'true') {
-      setConfirmationMessage('Email confirmed successfully! You are now signed in.');
-      // Clear the URL parameter
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('confirmed');
-      window.history.replaceState({}, '', newUrl.pathname);
-      
-      // Clear message after 5 seconds
-      setTimeout(() => setConfirmationMessage(''), 5000);
-    }
-    
-    if (error) {
-      setErrorMessage(decodeURIComponent(error));
-      // Clear the URL parameter
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('error');
-      window.history.replaceState({}, '', newUrl.pathname);
-      
-      // Clear message after 8 seconds
-      setTimeout(() => setErrorMessage(''), 8000);
-    }
-  }, [searchParams]);
-
   const initializeApp = async () => {
     try {
       await cloudDBManager.initDB();
       
       // Load recent books
       const books = await cloudDBManager.getAllBooks();
-      setRecentBooks(books.slice(0, 3)); // Show top 3 recent books
+      setRecentBooks(books);
       
-      // Check for stored current book
-      const stored = localStorage.getItem('currentBook');
-      if (stored && books.find(book => book.title === stored)) {
-        setCurrentBook(stored);
-      } else if (books.length === 0) {
-        // First run - show book prompt
-        setShowBookPrompt(true);
+      // Set current book to most recent if none selected
+      if (books.length > 0 && !currentBook) {
+        setCurrentBook(books[0].title);
       }
     } catch (error) {
-      console.error('Failed to initialize app:', error);
+      console.error('Error initializing app:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleConfirmation = (message: string) => {
+    setConfirmationMessage(message);
+    setTimeout(() => setConfirmationMessage(''), 5000);
+  };
+
+  const handleError = (message: string) => {
+    setErrorMessage(message);
+    setTimeout(() => setErrorMessage(''), 8000);
   };
 
   const loadCurrentBookNotes = async () => {
@@ -232,6 +210,14 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
+      {/* URL Parameter Handler */}
+      <Suspense fallback={null}>
+        <NotificationHandler 
+          onConfirmation={handleConfirmation}
+          onError={handleError}
+        />
+      </Suspense>
+
       {/* Header */}
       <Header onGoToBooks={handleGoToBooks} />
 
