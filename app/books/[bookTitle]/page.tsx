@@ -7,6 +7,8 @@ import { cloudDBManager } from '../../../lib/cloudDB';
 import { useAuth } from '../../../lib/auth';
 import AuthModal from '../../../components/auth/AuthModal';
 import LoadingScreen from '../../../components/LoadingScreen';
+import NoteItem from '../../../components/NoteItem';
+import EditNoteModal from '../../../components/EditNoteModal';
 
 export default function BookNotesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -14,6 +16,7 @@ export default function BookNotesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [editText, setEditText] = useState('');
+  const [swipedNoteId, setSwipedNoteId] = useState<string | null>(null);
   const router = useRouter();
   const params = useParams();
   
@@ -64,14 +67,21 @@ export default function BookNotesPage() {
   };
 
   const handleDeleteNote = async (noteId: string) => {
-    if (!confirm('Are you sure you want to delete this note?')) return;
-
     try {
       await cloudDBManager.deleteNote(noteId);
       await loadNotes();
+      setSwipedNoteId(null); // Reset swipe state after deletion
     } catch (error) {
       console.error('Failed to delete note:', error);
     }
+  };
+
+  const handleSwipeStart = (e: React.TouchEvent, noteId: string) => {
+    setSwipedNoteId(noteId);
+  };
+
+  const handleSwipeCancel = () => {
+    setSwipedNoteId(null);
   };
 
   const handleSelectBook = () => {
@@ -141,86 +151,34 @@ export default function BookNotesPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {notes.map((note) => (
-              <div
+              <NoteItem
                 key={note.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-4"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="text-gray-900 leading-relaxed">
-                      {note.text}
-                    </p>
-                    <div className="mt-3 text-xs text-gray-500">
-                      {new Date(note.createdAt).toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 ml-4">
-                    <button
-                      onClick={() => handleEditNote(note)}
-                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleDeleteNote(note.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
+                note={note}
+                swipedNoteId={swipedNoteId}
+                onSwipeStart={handleSwipeStart}
+                onSwipeCancel={handleSwipeCancel}
+                onEdit={handleEditNote}
+                onDelete={handleDeleteNote}
+                showTimestamp={true}
+              />
             ))}
           </div>
         )}
       </div>
 
       {/* Edit Note Modal */}
-      {editingNote && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end z-50">
-          <div className="bg-white rounded-t-xl w-full max-h-96 flex flex-col">
-            <div className="p-4 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">Edit Note</h3>
-              <p className="text-sm text-gray-600">
-                {new Date(editingNote.createdAt).toLocaleString()}
-              </p>
-            </div>
-            <div className="flex-1 p-4">
-              <textarea
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Edit your note..."
-                autoFocus
-              />
-            </div>
-            <div className="p-4 border-t flex gap-3">
-              <button
-                onClick={() => {
-                  setEditingNote(null);
-                  setEditText('');
-                }}
-                className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                disabled={!editText.trim()}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <EditNoteModal
+        note={editingNote}
+        editText={editText}
+        onEditTextChange={setEditText}
+        onSave={handleSaveEdit}
+        onCancel={() => {
+          setEditingNote(null);
+          setEditText('');
+        }}
+      />
     </div>
   );
 }

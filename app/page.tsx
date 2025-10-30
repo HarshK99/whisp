@@ -12,6 +12,8 @@ import LoadingScreen from '../components/LoadingScreen';
 import Header from '../components/Header';
 import AuthModal from '../components/auth/AuthModal';
 import NotificationHandler from '../components/NotificationHandler';
+import { Alert } from '../components/ui';
+import PageLayout from '../components/ui/PageLayout';
 import { cloudDBManager } from '../lib/cloudDB';
 import { Book, Note } from '../lib/types';
 import { useAuth } from '../lib/auth';
@@ -53,11 +55,25 @@ export default function Home() {
       
       // Load recent books
       const books = await cloudDBManager.getAllBooks();
-      setRecentBooks(books);
       
-      // Set current book to most recent if none selected
-      if (books.length > 0 && !currentBook) {
-        setCurrentBook(books[0].title);
+      // If no books exist, create a default "My Thoughts" book
+      if (books.length === 0) {
+        const defaultBook = {
+          id: crypto.randomUUID(),
+          title: 'My Thoughts',
+          createdAt: new Date(),
+          lastUsed: new Date(),
+        };
+        
+        await cloudDBManager.saveBook(defaultBook);
+        setRecentBooks([defaultBook]);
+        setCurrentBook('My Thoughts');
+      } else {
+        setRecentBooks(books);
+        // Set current book to most recent if none selected
+        if (!currentBook) {
+          setCurrentBook(books[0].title);
+        }
       }
     } catch (error) {
       console.error('Error initializing app:', error);
@@ -209,7 +225,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <PageLayout>
       {/* URL Parameter Handler */}
       <Suspense fallback={null}>
         <NotificationHandler 
@@ -223,25 +239,25 @@ export default function Home() {
 
       {/* Confirmation Message */}
       {confirmationMessage && (
-        <div className="mx-4 mt-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-md">
-          <div className="flex">
-            <svg className="w-5 h-5 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
+        <div className="mx-4 mt-4">
+          <Alert 
+            variant="success"
+            onClose={() => setConfirmationMessage('')}
+          >
             {confirmationMessage}
-          </div>
+          </Alert>
         </div>
       )}
 
       {/* Error Message */}
       {errorMessage && (
-        <div className="mx-4 mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">
-          <div className="flex">
-            <svg className="w-5 h-5 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
+        <div className="mx-4 mt-4">
+          <Alert 
+            variant="error"
+            onClose={() => setErrorMessage('')}
+          >
             {errorMessage}
-          </div>
+          </Alert>
         </div>
       )}
 
@@ -302,7 +318,7 @@ export default function Home() {
         onBookChange={handleBookChange}
         onNoteSaved={loadCurrentBookNotes}
       />
-    </div>
+    </PageLayout>
   );
 }
 
