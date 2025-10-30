@@ -1,6 +1,7 @@
 'use client';
 
 import { Note } from '../lib/types';
+import { Button } from './ui';
 
 interface EditNoteModalProps {
   note: Note | null;
@@ -20,8 +21,8 @@ export default function EditNoteModal({
   if (!note) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end z-50">
-      <div className="bg-white rounded-t-xl w-full max-h-96 flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end z-[60]">
+      <div className="bg-white rounded-t-xl w-full max-h-96 flex flex-col mb-20">
         <div className="p-4 border-b">
           <h3 className="text-lg font-semibold text-gray-900">Edit Note</h3>
           <p className="text-sm text-gray-600">
@@ -38,19 +39,20 @@ export default function EditNoteModal({
           />
         </div>
         <div className="p-4 border-t flex gap-3">
-          <button
+          <Button
+            variant="outline"
             onClick={onCancel}
-            className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex-1"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={onSave}
             disabled={!editText.trim()}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="flex-1"
           >
             Save Changes
-          </button>
+          </Button>
         </div>
       </div>
     </div>

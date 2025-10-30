@@ -25,13 +25,14 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
 
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [lastSavedTranscript, setLastSavedTranscript] = useState('');
 
   useEffect(() => {
-    if (!isRecording && liveTranscript.trim()) {
-      // Auto-save the note immediately when recording stops
+    // Only save if recording stopped, we have a transcript, and it's different from the last saved one
+    if (!isRecording && liveTranscript.trim() && liveTranscript.trim() !== lastSavedTranscript && !isSaving) {
       handleAutoSaveNote(liveTranscript.trim());
     }
-  }, [isRecording, liveTranscript]);
+  }, [isRecording, liveTranscript, lastSavedTranscript, isSaving]);
 
   const handleToggleRecording = () => {
     if (!currentBook) {
@@ -42,13 +43,15 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
     if (isRecording) {
       stopRecording();
     } else {
+      // Reset the last saved transcript when starting a new recording
+      setLastSavedTranscript('');
       clearTranscript();
       startRecording();
     }
   };
 
   const handleAutoSaveNote = async (text: string) => {
-    if (!text.trim() || !currentBook) return;
+    if (!text.trim() || !currentBook || isSaving) return;
 
     setIsSaving(true);
     try {
@@ -61,6 +64,8 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
       await cloudDBManager.saveNote(note);
       await cloudDBManager.updateBookLastUsed(currentBook);
       
+      // Mark this transcript as saved to prevent duplicates
+      setLastSavedTranscript(text.trim());
       clearTranscript();
       
       // Show success message
@@ -165,26 +170,34 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
                   <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"></div>
                 )}
                 
-                {/* Microphone icon */}
+                {/* Microphone/Stop icon */}
                 <div className="relative flex items-center justify-center w-full h-full">
-                  <svg
-                    className="w-7 h-7 text-white"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                  </svg>
+                  {isRecording ? (
+                    // Stop icon when recording
+                    <div className="w-4 h-4 bg-white rounded-sm"></div>
+                  ) : (
+                    // Microphone icon when not recording
+                    <svg
+                      className="w-7 h-7 text-white"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                      <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                    </svg>
+                  )}
                 </div>
               </button>
               
               {/* Recording status below button */}
-              <div className="text-xs text-gray-600 mt-1 text-center">
+              <div className={`text-xs mt-1 text-center font-medium ${
+                isRecording ? 'text-red-600' : 'text-gray-600'
+              }`}>
                 {!currentBook 
                   ? 'Select book'
                   : isRecording 
                     ? isListening 
-                      ? 'Listening...' 
+                      ? 'Tap to stop' 
                       : 'Starting...'
                     : 'Tap to record'
                 }
