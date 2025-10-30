@@ -1,7 +1,6 @@
 'use client';
 
 import { Note } from '../lib/types';
-import { useState, useRef } from 'react';
 import { IconButton } from './ui';
 
 interface NoteItemProps {
@@ -23,45 +22,21 @@ export default function NoteItem({
   onDelete,
   showTimestamp = false, // Default to false (don't show timestamp)
 }: NoteItemProps) {
-  const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    touchStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      time: Date.now()
-    };
-    setIsDragging(false);
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDelete(note.id);
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    const touch = e.touches[0];
-    const diffX = Math.abs(touchStartRef.current.x - touch.clientX);
-    const diffY = Math.abs(touchStartRef.current.y - touch.clientY);
+  const handleNoteClick = (e: React.MouseEvent) => {
+    // Check if click was on delete button or its children
+    const target = e.target as HTMLElement;
+    const deleteButton = target.closest('[data-delete-button]');
     
-    // If significant horizontal movement, it's a swipe
-    if (diffX > 10 || diffY > 10) {
-      setIsDragging(true);
-      // Only trigger swipe for horizontal movement
-      if (diffX > diffY && diffX > 50) {
-        onSwipeStart(e, note.id);
-      }
+    if (deleteButton) {
+      // Don't handle note click if delete button was clicked
+      return;
     }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const timeDiff = Date.now() - touchStartRef.current.time;
     
-    // If it was a quick tap without dragging, treat as click
-    if (!isDragging && timeDiff < 300) {
-      handleNoteClick();
-    }
-    setIsDragging(false);
-  };
-
-  const handleNoteClick = () => {
     // If note is swiped, cancel the swipe instead of editing
     if (swipedNoteId === note.id) {
       onSwipeCancel();
@@ -71,14 +46,17 @@ export default function NoteItem({
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // Pass touch event to parent for swipe handling
+    onSwipeStart(e, note.id);
+  };
+
   return (
     <div
       className={`relative bg-white rounded-xl shadow-sm border border-gray-200 transition-transform duration-200 cursor-pointer hover:shadow-md hover:border-gray-300 ${
         swipedNoteId === note.id ? '-translate-x-20' : ''
       }`}
       onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
       onClick={handleNoteClick}
     >
       <div className="p-4 flex items-start justify-between">
@@ -110,14 +88,12 @@ export default function NoteItem({
       {swipedNoteId === note.id && (
         <div className="absolute right-0 top-0 h-full flex items-center">
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(note.id);
-            }}
+            data-delete-button="true"
+            onClick={handleDeleteClick}
             className="bg-red-500 text-white px-4 h-full rounded-r-xl hover:bg-red-600 transition-colors"
           >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" data-delete-button="true">
+              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" data-delete-button="true"/>
             </svg>
           </button>
         </div>

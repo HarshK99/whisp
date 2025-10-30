@@ -12,14 +12,16 @@ export default function PageLayout({
   padding = true,
 }: PageLayoutProps) {
   const classes = [
-    'min-h-screen bg-gray-50',
-    padding ? 'pb-24' : '', // Space for recorder bar
+    'min-h-screen bg-gray-50 flex flex-col',
     className,
   ].filter(Boolean).join(' ');
 
   return (
     <div className={classes}>
-      {children}
+      {/* Main content area that grows and has bottom padding for recorder */}
+      <div className={`flex-1 ${padding ? 'pb-28' : ''}`}>
+        {children}
+      </div>
     </div>
   );
 }
