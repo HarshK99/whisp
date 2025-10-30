@@ -58,6 +58,7 @@ export const useSpeechRecognition = () => {
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const accumulatedTranscriptRef = useRef<string>(''); // Store accumulated final transcripts
 
   const initRecognition = useCallback(() => {
     if (typeof window === 'undefined') return null;
@@ -80,20 +81,25 @@ export const useSpeechRecognition = () => {
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interimTranscript = '';
-      let finalTranscript = '';
+      let newFinalTranscript = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += transcript;
+          newFinalTranscript += transcript;
         } else {
           interimTranscript += transcript;
         }
       }
 
+      // Accumulate final transcripts
+      if (newFinalTranscript) {
+        accumulatedTranscriptRef.current += (accumulatedTranscriptRef.current ? ' ' : '') + newFinalTranscript;
+      }
+
       setState(prev => ({
         ...prev,
-        liveTranscript: finalTranscript + interimTranscript,
+        liveTranscript: accumulatedTranscriptRef.current + (interimTranscript ? (accumulatedTranscriptRef.current ? ' ' : '') + interimTranscript : ''),
       }));
 
       // Reset timeout for continuous listening
@@ -136,6 +142,7 @@ export const useSpeechRecognition = () => {
 
   const startRecording = useCallback(() => {
     setState(prev => ({ ...prev, error: null, liveTranscript: '' }));
+    accumulatedTranscriptRef.current = ''; // Reset accumulated transcript
     
     if (!recognitionRef.current) {
       recognitionRef.current = initRecognition();
@@ -166,6 +173,7 @@ export const useSpeechRecognition = () => {
 
   const clearTranscript = useCallback(() => {
     setState(prev => ({ ...prev, liveTranscript: '', error: null }));
+    accumulatedTranscriptRef.current = ''; // Reset accumulated transcript
   }, []);
 
   // Cleanup on unmount

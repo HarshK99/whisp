@@ -97,7 +97,7 @@ export default function Home() {
     
     try {
       const notes = await cloudDBManager.getNotesByBook(currentBook);
-      setCurrentBookNotes(notes.slice(0, 3)); // Show last 3 notes
+      setCurrentBookNotes(notes.slice(0, 10)); // Show last 10 notes
     } catch (error) {
       console.error('Failed to load current book notes:', error);
     }
@@ -116,7 +116,7 @@ export default function Home() {
     // Load notes for the selected book
     try {
       const notes = await cloudDBManager.getNotesByBook(bookTitle);
-      setCurrentBookNotes(notes.slice(0, 3));
+      setCurrentBookNotes(notes.slice(0, 10));
     } catch (error) {
       console.error('Failed to load current book notes:', error);
     }
@@ -312,7 +312,7 @@ export default function Home() {
         hasCurrentBook={!!currentBook}
       />
 
-      {/* Recorder Bar */}
+      {/* Recorder Bar - Now positioned as sticky bottom element */}
       <RecorderBar 
         currentBook={currentBook} 
         onBookChange={handleBookChange}

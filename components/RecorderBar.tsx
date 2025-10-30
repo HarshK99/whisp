@@ -95,17 +95,21 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
 
   return (
     <>
-      {/* Live transcription overlay */}
-      {isRecording && liveTranscript && (
-        <div className="fixed bottom-24 left-4 right-4 bg-white rounded-xl shadow-lg border p-4 max-h-32 overflow-y-auto z-40">
+      {/* Live transcription overlay - positioned above the recorder bar */}
+      {isRecording && (
+        <div className="fixed bottom-28 left-4 right-4 bg-white rounded-xl shadow-lg border p-4 max-h-32 overflow-y-auto z-40">
           <div className="text-sm text-gray-600 mb-2">Live transcription:</div>
-          <div className="text-gray-900">{liveTranscript}</div>
+          <div className="text-gray-900 min-h-[20px]">
+            {liveTranscript || (
+              <span className="text-gray-400 italic">Listening...</span>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Success indicator */}
+      {/* Success indicator - positioned above the recorder bar */}
       {showSuccess && (
-        <div className="fixed bottom-24 left-4 right-4 bg-green-50 border border-green-200 rounded-xl p-4 z-40">
+        <div className="fixed bottom-28 left-4 right-4 bg-green-50 border border-green-200 rounded-xl p-4 z-40">
           <div className="flex items-center justify-center">
             <svg className="w-5 h-5 text-green-600 mr-2" fill="currentColor" viewBox="0 0 24 24">
               <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
@@ -115,9 +119,9 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
         </div>
       )}
 
-      {/* Saving indicator */}
+      {/* Saving indicator - positioned above the recorder bar */}
       {isSaving && (
-        <div className="fixed bottom-24 left-4 right-4 bg-blue-50 border border-blue-200 rounded-xl p-4 z-40">
+        <div className="fixed bottom-28 left-4 right-4 bg-blue-50 border border-blue-200 rounded-xl p-4 z-40">
           <div className="flex items-center justify-center">
             <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -128,7 +132,7 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
         </div>
       )}
 
-      {/* Recorder Bar */}
+      {/* Recorder Bar - Fixed at bottom but not overlaying content */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
         <div className="px-4 py-3">
           {/* Error message */}
