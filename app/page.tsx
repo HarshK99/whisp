@@ -31,23 +31,27 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [confirmationMessage, setConfirmationMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [isNotesLoaded, setIsNotesLoaded] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const router = useRouter();
 
+  // Load saved current book on component mount
   useEffect(() => {
-    if (user) {
+    const savedBook = localStorage.getItem('currentBook');
+    if (savedBook) {
+      setCurrentBook(savedBook);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user && !isInitialized) {
       initializeApp();
       // Reset cloudDBManager when user changes
       cloudDBManager.reset();
-    } else {
+    } else if (!user) {
       setIsLoading(false);
     }
-  }, [user]);
-
-  useEffect(() => {
-    if (currentBook && user) {
-      loadCurrentBookNotes();
-    }
-  }, [currentBook, user]);
+  }, [user, isInitialized]);
 
   const initializeApp = async () => {
     try {
@@ -55,6 +59,8 @@ export default function Home() {
       
       // Load recent books
       const books = await cloudDBManager.getAllBooks();
+      
+      let finalCurrentBook = '';
       
       // If no books exist, create a default "My Thoughts" book
       if (books.length === 0) {
@@ -67,18 +73,47 @@ export default function Home() {
         
         await cloudDBManager.saveBook(defaultBook);
         setRecentBooks([defaultBook]);
-        setCurrentBook('My Thoughts');
+        
+        // Only set current book if none is already set from localStorage
+        if (!currentBook) {
+          finalCurrentBook = 'My Thoughts';
+          setCurrentBook('My Thoughts');
+          localStorage.setItem('currentBook', 'My Thoughts');
+        } else {
+          finalCurrentBook = currentBook;
+        }
       } else {
         setRecentBooks(books);
-        // Set current book to most recent if none selected
-        if (!currentBook) {
+        
+        // Check if the saved current book still exists in the books list
+        const savedBook = currentBook || localStorage.getItem('currentBook');
+        const bookExists = books.some(book => book.title === savedBook);
+        
+        if (savedBook && bookExists) {
+          // Keep the saved book and update its last used time
+          finalCurrentBook = savedBook;
+          setCurrentBook(savedBook);
+          await cloudDBManager.updateBookLastUsed(savedBook);
+        } else {
+          // Fall back to most recent book if saved book doesn't exist
+          finalCurrentBook = books[0].title;
           setCurrentBook(books[0].title);
+          localStorage.setItem('currentBook', books[0].title);
         }
       }
+      
+      // Load notes for the final current book immediately
+      if (finalCurrentBook) {
+        const notes = await cloudDBManager.getNotesByBook(finalCurrentBook);
+        setCurrentBookNotes(notes.slice(0, 10));
+        setIsNotesLoaded(true);
+      }
+      
     } catch (error) {
       console.error('Error initializing app:', error);
     } finally {
       setIsLoading(false);
+      setIsInitialized(true);
     }
   };
 
@@ -98,6 +133,7 @@ export default function Home() {
     try {
       const notes = await cloudDBManager.getNotesByBook(currentBook);
       setCurrentBookNotes(notes.slice(0, 10)); // Show last 10 notes
+      setIsNotesLoaded(true);
     } catch (error) {
       console.error('Failed to load current book notes:', error);
     }
@@ -117,6 +153,7 @@ export default function Home() {
     try {
       const notes = await cloudDBManager.getNotesByBook(bookTitle);
       setCurrentBookNotes(notes.slice(0, 10));
+      setIsNotesLoaded(true);
     } catch (error) {
       console.error('Failed to load current book notes:', error);
     }
@@ -144,6 +181,7 @@ export default function Home() {
       
       // Load notes for the new book (will be empty initially)
       setCurrentBookNotes([]);
+      setIsNotesLoaded(true);
     } catch (error) {
       console.error('Failed to create book:', error);
     }
@@ -161,18 +199,32 @@ export default function Home() {
   const handleSaveEdit = async () => {
     if (!editingNote || !editText.trim()) return;
 
+    const updatedNote: Note = {
+      ...editingNote,
+      text: editText.trim(),
+    };
+
     try {
-      const updatedNote: Note = {
-        ...editingNote,
-        text: editText.trim(),
-      };
+      // Optimistic update - update UI immediately
+      setCurrentBookNotes(prevNotes => 
+        prevNotes.map(note => 
+          note.id === updatedNote.id ? updatedNote : note
+        )
+      );
       
-      await cloudDBManager.updateNote(updatedNote);
-      await loadCurrentBookNotes();
+      // Close modal immediately for better UX
       setEditingNote(null);
       setEditText('');
+      
+      // Update in database
+      await cloudDBManager.updateNote(updatedNote);
+      
     } catch (error) {
       console.error('Failed to update note:', error);
+      // Revert optimistic update on error
+      await loadCurrentBookNotes();
+      // Show error to user
+      setErrorMessage('Failed to save changes. Please try again.');
     }
   };
 
@@ -212,7 +264,7 @@ export default function Home() {
     document.addEventListener('touchend', handleSwipeEnd);
   };
 
-  if (authLoading) {
+  if (authLoading || isLoading) {
     return <LoadingScreen />;
   }
 
@@ -220,7 +272,8 @@ export default function Home() {
     return <AuthModal />;
   }
 
-  if (isLoading) {
+  // Don't render main content until initialization is complete
+  if (!isInitialized) {
     return <LoadingScreen />;
   }
 
@@ -265,8 +318,8 @@ export default function Home() {
       <div className="px-4 py-6">
         {currentBook ? (
           <>
-            {/* Show Ready to Record only when no notes exist */}
-            {currentBookNotes.length === 0 && (
+            {/* Show Ready to Record only when notes are loaded and there are none */}
+            {isNotesLoaded && currentBookNotes.length === 0 && (
               <ReadyToRecord currentBook={currentBook} />
             )}
           </>
@@ -275,16 +328,18 @@ export default function Home() {
         )}
 
         {/* Recent Notes for Current Book */}
-        <RecentNotes
-          currentBook={currentBook}
-          notes={currentBookNotes}
-          swipedNoteId={swipedNoteId}
-          onSwipeStart={handleSwipeStart}
-          onSwipeCancel={() => setSwipedNoteId(null)}
-          onEdit={handleEditNote}
-          onDelete={handleDeleteNote}
-          onViewAll={() => router.push(`/books/${encodeURIComponent(currentBook)}`)}
-        />
+        {currentBook && isInitialized && (
+          <RecentNotes
+            currentBook={currentBook}
+            notes={currentBookNotes}
+            swipedNoteId={swipedNoteId}
+            onSwipeStart={handleSwipeStart}
+            onSwipeCancel={() => setSwipedNoteId(null)}
+            onEdit={handleEditNote}
+            onDelete={handleDeleteNote}
+            onViewAll={() => router.push(`/books/${encodeURIComponent(currentBook)}`)}
+          />
+        )}
       </div>
 
       {/* Edit Note Modal */}

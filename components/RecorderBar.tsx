@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
 import { cloudDBManager } from '../lib/cloudDB';
 import { Note } from '../lib/types';
+import { useAuth } from '../lib/auth';
+import { GradientHeader } from './ui';
 
 interface RecorderBarProps {
   currentBook: string;
@@ -12,6 +14,7 @@ interface RecorderBarProps {
 }
 
 export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: RecorderBarProps) {
+  const { user } = useAuth();
   const {
     isRecording,
     isListening,
@@ -21,11 +24,36 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
     stopRecording,
     clearTranscript,
     isSupported,
+    isSafari,
+    getBrowserInfo,
   } = useSpeechRecognition();
 
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastSavedTranscript, setLastSavedTranscript] = useState('');
+  const [showSafariNotice, setShowSafariNotice] = useState(false);
+
+  // Check if we should show Safari notice - only after user is logged in
+  useEffect(() => {
+    if (user && isSafari) {
+      // Check if notice was already shown for this user session
+      const safariNoticeKey = `safariNoticeShown_${user.id}`;
+      const safariNoticeShown = sessionStorage.getItem(safariNoticeKey);
+      
+      if (!safariNoticeShown) {
+        setShowSafariNotice(true);
+        // Use sessionStorage so it shows once per session, not once forever
+        sessionStorage.setItem(safariNoticeKey, 'true');
+        
+        // Hide after 5 seconds
+        const timer = setTimeout(() => {
+          setShowSafariNotice(false);
+        }, 5000);
+        
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user, isSafari]);
 
   useEffect(() => {
     // Only save if recording stopped, we have a transcript, and it's different from the last saved one
@@ -133,12 +161,31 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
       )}
 
       {/* Recorder Bar - Fixed at bottom but not overlaying content */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50">
-        <div className="px-4 py-3">
-          {/* Error message */}
+      <div className="fixed bottom-0 left-0 right-0 shadow-lg z-50">
+        <GradientHeader variant="bottom">
+          <div className="px-4 py-3">
+            {/* Error message */}
           {error && (
             <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
               <div className="text-sm text-red-600">{error}</div>
+            </div>
+          )}
+
+          {/* Safari Warning - Only show for 5 seconds on first login per session */}
+          {showSafariNotice && (
+            <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-yellow-700">
+                  <span className="font-medium">Safari Notice:</span> For best transcription quality, try using Chrome. Safari's speech recognition has limitations.
+                </div>
+                <button
+                  onClick={() => setShowSafariNotice(false)}
+                  className="ml-2 text-yellow-600 hover:text-yellow-800 text-xs"
+                  aria-label="Dismiss notice"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           )}
 
@@ -208,7 +255,8 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        </GradientHeader>
       </div>
     </>
   );

@@ -1,5 +1,6 @@
 'use client';
 
+import { GradientHeader } from './ui';
 import UserProfile from './auth/UserProfile';
 
 interface HeaderProps {
@@ -8,7 +9,7 @@ interface HeaderProps {
 
 export default function Header({ onGoToBooks }: HeaderProps) {
   return (
-    <div className="bg-white border-b border-gray-200">
+    <GradientHeader>
       <div className="px-4 py-6">
         <div className="flex items-center justify-between">
           <div>
@@ -31,6 +32,6 @@ export default function Header({ onGoToBooks }: HeaderProps) {
           </div>
         </div>
       </div>
-    </div>
+    </GradientHeader>
   );
 }

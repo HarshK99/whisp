@@ -1,6 +1,8 @@
 'use client';
 
 import { Book } from '../lib/types';
+import { formatDate } from '../lib/dateUtils';
+import { ModalOverlay, Card } from './ui';
 
 interface BookSelectionModalProps {
   show: boolean;
@@ -28,8 +30,8 @@ export default function BookSelectionModal({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl w-full max-w-md max-h-96 flex flex-col">
+    <ModalOverlay isOpen={show} onClose={hasCurrentBook ? onClose : undefined}>
+      <Card className="w-full max-w-md max-h-96 flex flex-col" padding="none">
         <div className="p-6 border-b">
           <h3 className="text-lg font-semibold text-gray-900">Select or Add Book</h3>
           <p className="text-sm text-gray-600 mt-1">Choose a book to record notes for</p>
@@ -49,7 +51,7 @@ export default function BookSelectionModal({
                   >
                     <div className="font-medium text-gray-900">{book.title}</div>
                     <div className="text-xs text-gray-500 mt-1">
-                      Last used: {new Date(book.lastUsed).toLocaleDateString()}
+                      Last used: {formatDate(book.lastUsed)}
                     </div>
                   </button>
                 ))}
@@ -96,9 +98,9 @@ export default function BookSelectionModal({
             >
               Cancel
             </button>
-          )}
+            )}
         </div>
-      </div>
-    </div>
+      </Card>
+    </ModalOverlay>
   );
 }

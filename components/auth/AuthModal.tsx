@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '../../lib/auth';
+import { ModalOverlay, Card } from '../ui';
 
 export default function AuthModal() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -58,8 +59,8 @@ export default function AuthModal() {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+    <ModalOverlay isOpen={true}>
+      <Card className="w-full max-w-md" padding="lg">
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Welcome to Whisp
@@ -172,7 +173,7 @@ export default function AuthModal() {
             🎤 Record voice notes from your favorite books
           </p>
         </div>
-      </div>
-    </div>
+      </Card>
+    </ModalOverlay>
   );
 }

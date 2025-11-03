@@ -1,7 +1,8 @@
 'use client';
 
 import { Note } from '../lib/types';
-import { IconButton } from './ui';
+import { IconButton, Card } from './ui';
+import { formatDateTime } from '../lib/dateUtils';
 
 interface NoteItemProps {
   note: Note;
@@ -27,7 +28,9 @@ export default function NoteItem({
     onDelete(note.id);
   };
 
-  const handleNoteClick = (e: React.MouseEvent) => {
+  const handleNoteClick = (e?: React.MouseEvent) => {
+    if (!e) return;
+    
     // Check if click was on delete button or its children
     const target = e.target as HTMLElement;
     const deleteButton = target.closest('[data-delete-button]');
@@ -52,21 +55,24 @@ export default function NoteItem({
   };
 
   return (
-    <div
-      className={`relative bg-white rounded-xl shadow-sm border border-gray-200 transition-transform duration-200 cursor-pointer hover:shadow-md hover:border-gray-300 ${
+    <Card
+      hover
+      className={`relative transition-transform duration-200 cursor-pointer ${
         swipedNoteId === note.id ? '-translate-x-20' : ''
       }`}
-      onTouchStart={handleTouchStart}
       onClick={handleNoteClick}
     >
-      <div className="p-4 flex items-start justify-between">
+      <div
+        onTouchStart={handleTouchStart}
+        className="flex items-start justify-between"
+      >
         <div className="flex-1 mr-3">
           <p className="text-gray-900 text-sm leading-relaxed overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
             {note.text}
           </p>
           {showTimestamp && (
             <div className="mt-2 text-xs text-gray-500">
-              {new Date(note.createdAt).toLocaleString()}
+              {formatDateTime(note.createdAt)}
             </div>
           )}
         </div>
@@ -98,6 +104,6 @@ export default function NoteItem({
           </button>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

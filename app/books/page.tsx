@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../lib/auth';
 import AuthModal from '../../components/auth/AuthModal';
 import LoadingScreen from '../../components/LoadingScreen';
+import { formatDate } from '../../lib/dateUtils';
+import { PageHeader, Card, ModalOverlay } from '../../components/ui';
 
 export default function BooksPage() {
   const { user, loading: authLoading } = useAuth();
@@ -84,32 +86,27 @@ export default function BooksPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => router.push('/')}
-              className="flex items-center text-blue-600 hover:text-blue-700"
-            >
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M19 7v4H5.83l3.58-3.59L8 6l-6 6 6 6 1.41-1.41L5.83 13H21V7z"/>
-              </svg>
-              Back to Record
-            </button>
-            <h1 className="text-xl font-semibold text-gray-900">Books</h1>
-            <button
-              onClick={() => setShowAddBook(true)}
-              className="flex items-center text-blue-600 hover:text-blue-700"
-            >
-              <svg className="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-              Add
-            </button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Books"
+        leftAction={{
+          icon: (
+            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19 7v4H5.83l3.58-3.59L8 6l-6 6 6 6 1.41-1.41L5.83 13H21V7z"/>
+            </svg>
+          ),
+          label: "Back to Record",
+          onClick: () => router.push('/'),
+        }}
+        rightAction={{
+          icon: (
+            <svg className="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+          ),
+          label: "Add",
+          onClick: () => setShowAddBook(true),
+        }}
+      />
 
       {/* Books List */}
       <div className="px-4 py-6">
@@ -132,17 +129,14 @@ export default function BooksPage() {
         ) : (
           <div className="space-y-3">
             {books.map((book) => (
-              <div
-                key={book.title}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-4"
-              >
+              <Card key={book.title} hover>
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <h3 className="font-medium text-gray-900 text-lg">
                       {book.title}
                     </h3>
                     <p className="text-sm text-gray-500 mt-1">
-                      Last used: {new Date(book.lastUsed).toLocaleDateString()}
+                      Last used: {formatDate(book.lastUsed)}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -160,57 +154,59 @@ export default function BooksPage() {
                     </button>
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}
       </div>
 
       {/* Add Book Modal */}
-      {showAddBook && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl w-full max-w-md">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Add New Book
-              </h3>
-              <input
-                type="text"
-                value={newBookTitle}
-                onChange={(e) => setNewBookTitle(e.target.value)}
-                placeholder="Enter book title..."
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddBook();
-                  } else if (e.key === 'Escape') {
-                    setShowAddBook(false);
-                  }
-                }}
-              />
-              <div className="flex gap-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowAddBook(false);
-                    setNewBookTitle('');
-                  }}
-                  className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddBook}
-                  disabled={!newBookTitle.trim()}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                >
-                  Add Book
-                </button>
-              </div>
-            </div>
+      <ModalOverlay 
+        isOpen={showAddBook} 
+        onClose={() => {
+          setShowAddBook(false);
+          setNewBookTitle('');
+        }}
+      >
+        <Card className="w-full max-w-md" padding="lg">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Add New Book
+          </h3>
+          <input
+            type="text"
+            value={newBookTitle}
+            onChange={(e) => setNewBookTitle(e.target.value)}
+            placeholder="Enter book title..."
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleAddBook();
+              } else if (e.key === 'Escape') {
+                setShowAddBook(false);
+              }
+            }}
+          />
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => {
+                setShowAddBook(false);
+                setNewBookTitle('');
+              }}
+              className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddBook}
+              disabled={!newBookTitle.trim()}
+              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              Add Book
+            </button>
           </div>
-        </div>
-      )}
+        </Card>
+      </ModalOverlay>
     </div>
   );
 }

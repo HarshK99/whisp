@@ -9,6 +9,7 @@ import AuthModal from '../../../components/auth/AuthModal';
 import LoadingScreen from '../../../components/LoadingScreen';
 import NoteItem from '../../../components/NoteItem';
 import EditNoteModal from '../../../components/EditNoteModal';
+import { PageHeader } from '../../../components/ui';
 
 export default function BookNotesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -51,18 +52,30 @@ export default function BookNotesPage() {
   const handleSaveEdit = async () => {
     if (!editingNote || !editText.trim()) return;
 
+    const updatedNote: Note = {
+      ...editingNote,
+      text: editText.trim(),
+    };
+
     try {
-      const updatedNote: Note = {
-        ...editingNote,
-        text: editText.trim(),
-      };
+      // Optimistic update - update UI immediately
+      setNotes(prevNotes => 
+        prevNotes.map(note => 
+          note.id === updatedNote.id ? updatedNote : note
+        )
+      );
       
-      await cloudDBManager.updateNote(updatedNote);
-      await loadNotes();
+      // Close modal immediately for better UX
       setEditingNote(null);
       setEditText('');
+      
+      // Update in database
+      await cloudDBManager.updateNote(updatedNote);
+      
     } catch (error) {
       console.error('Failed to update note:', error);
+      // Revert optimistic update on error
+      await loadNotes();
     }
   };
 
@@ -103,34 +116,23 @@ export default function BookNotesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => router.push('/books')}
-              className="flex items-center text-blue-600 hover:text-blue-700"
-            >
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M19 7v4H5.83l3.58-3.59L8 6l-6 6 6 6 1.41-1.41L5.83 13H21V7z"/>
-              </svg>
-              Books
-            </button>
-            <button
-              onClick={handleSelectBook}
-              className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Select & Record
-            </button>
-          </div>
-          <h1 className="text-xl font-semibold text-gray-900 mt-2 truncate">
-            {bookTitle}
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
-            {notes.length} {notes.length === 1 ? 'note' : 'notes'}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title={bookTitle}
+        subtitle={`${notes.length} ${notes.length === 1 ? 'note' : 'notes'}`}
+        leftAction={{
+          icon: (
+            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19 7v4H5.83l3.58-3.59L8 6l-6 6 6 6 1.41-1.41L5.83 13H21V7z"/>
+            </svg>
+          ),
+          label: "Books",
+          onClick: () => router.push('/books'),
+        }}
+        rightAction={{
+          label: "Select & Record",
+          onClick: handleSelectBook,
+        }}
+      />
 
       {/* Notes List */}
       <div className="px-4 py-6">
