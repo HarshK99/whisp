@@ -29,11 +29,11 @@ export default function EditNoteModal({
     if (textareaRef.current && note) {
       const textarea = textareaRef.current;
       textarea.focus();
-      // Set cursor position to the end
+      // Set cursor position to the end only when modal opens
       const length = editText.length;
       textarea.setSelectionRange(length, length);
     }
-  }, [note, editText]);
+  }, [note]); // Only depend on note, not editText
 
   const handleSave = async () => {
     if (!editText.trim() || isSaving) return;
