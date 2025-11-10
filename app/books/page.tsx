@@ -168,7 +168,7 @@ export default function BooksPage() {
           setNewBookTitle('');
         }}
       >
-        <Card className="w-full max-w-md" padding="lg">
+        <Card className="w-full max-w-md md:max-w-lg lg:max-w-xl" padding="lg">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Add New Book
           </h3>

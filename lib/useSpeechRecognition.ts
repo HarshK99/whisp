@@ -59,6 +59,7 @@ export const useSpeechRecognition = () => {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const accumulatedTranscriptRef = useRef<string>(''); // Store accumulated final transcripts
+  const isRecordingRef = useRef<boolean>(false);
   const isSafariRef = useRef<boolean>(false);
   const restartCountRef = useRef<number>(0);
   const maxRestartsRef = useRef<number>(10); // Limit restarts to prevent infinite loops
@@ -82,15 +83,11 @@ export const useSpeechRecognition = () => {
 
     const recognition = new SpeechRecognition();
     
-    // Safari-specific configuration
-    if (isSafariRef.current) {
-      recognition.continuous = false; // Safari works better with continuous: false
-      recognition.interimResults = false; // Safari's interim results are unreliable
-    } else {
-      recognition.continuous = true;
-      recognition.interimResults = true;
-    }
-    
+    // Use final-only results to avoid live/interim flicker. We'll accumulate final
+    // transcripts and expose them once the user stops recording.
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
     recognition.lang = 'en-US';
 
     recognition.onstart = () => {
@@ -98,68 +95,18 @@ export const useSpeechRecognition = () => {
     };
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let interimTranscript = '';
+      // Only capture final results
       let newFinalTranscript = '';
-
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          newFinalTranscript += transcript;
-        } else {
-          // Only use interim results for non-Safari browsers
-          if (!isSafariRef.current) {
-            interimTranscript += transcript;
-          }
+          newFinalTranscript += event.results[i][0].transcript;
         }
       }
 
-      // Accumulate final transcripts
       if (newFinalTranscript) {
         accumulatedTranscriptRef.current += (accumulatedTranscriptRef.current ? ' ' : '') + newFinalTranscript;
       }
-
-      // For Safari, show accumulated + interim; for Chrome show accumulated + current interim
-      const displayTranscript = isSafariRef.current 
-        ? accumulatedTranscriptRef.current || newFinalTranscript
-        : accumulatedTranscriptRef.current + (interimTranscript ? (accumulatedTranscriptRef.current ? ' ' : '') + interimTranscript : '');
-
-      setState(prev => ({
-        ...prev,
-        liveTranscript: displayTranscript,
-      }));
-
-      // Handle restart logic differently for Safari
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      
-      if (isSafariRef.current) {
-        // For Safari, restart more frequently and with shorter timeout
-        timeoutRef.current = setTimeout(() => {
-          if (recognitionRef.current && state.isRecording && restartCountRef.current < maxRestartsRef.current) {
-            restartCountRef.current++;
-            try {
-              recognitionRef.current.stop();
-              // Wait a bit before restarting on Safari
-              setTimeout(() => {
-                if (recognitionRef.current && state.isRecording) {
-                  recognitionRef.current.start();
-                }
-              }, 200);
-            } catch (error) {
-              console.error('Safari recognition restart error:', error);
-            }
-          }
-        }, 1000); // Shorter timeout for Safari
-      } else {
-        // Chrome/other browsers
-        timeoutRef.current = setTimeout(() => {
-          if (recognitionRef.current && state.isRecording) {
-            recognitionRef.current.stop();
-            recognitionRef.current.start();
-          }
-        }, 2000);
-      }
+      // Do NOT update liveTranscript here; wait until stopRecording to publish final text.
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -180,30 +127,26 @@ export const useSpeechRecognition = () => {
     };
 
     recognition.onend = () => {
+      // When recognition ends, it's no longer actively listening.
       setState(prev => ({ ...prev, isListening: false }));
-      
-      // Auto-restart logic with Safari considerations
-      if (state.isRecording && !state.error) {
-        const restartDelay = isSafariRef.current ? 300 : 100; // Longer delay for Safari
-        
-        setTimeout(() => {
-          if (recognitionRef.current && state.isRecording) {
-            try {
-              if (isSafariRef.current && restartCountRef.current >= maxRestartsRef.current) {
-                console.log('Safari: Max restarts reached, stopping recognition');
-                setState(prev => ({ ...prev, isRecording: false, isListening: false }));
-                return;
-              }
-              recognitionRef.current.start();
-            } catch (error) {
-              console.error('Recognition restart error:', error);
-              setState(prev => ({ 
-                ...prev, 
-                error: 'Failed to restart recognition',
-                isRecording: false,
-                isListening: false 
-              }));
-            }
+
+      // If the user still wants to record (pressed record and paused speech),
+      // attempt to restart recognition so we continue across pauses.
+      if (isRecordingRef.current) {
+        // prevent runaway restarts
+        if (restartCountRef.current >= maxRestartsRef.current) {
+          console.log('Max recognition restarts reached');
+          return;
+        }
+
+        const restartDelay = isSafariRef.current ? 300 : 150;
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+          try {
+            restartCountRef.current++;
+            if (recognitionRef.current) recognitionRef.current.start();
+          } catch (err) {
+            console.error('Error restarting recognition after end:', err);
           }
         }, restartDelay);
       }
@@ -216,7 +159,7 @@ export const useSpeechRecognition = () => {
     setState(prev => ({ ...prev, error: null, liveTranscript: '' }));
     accumulatedTranscriptRef.current = ''; // Reset accumulated transcript
     restartCountRef.current = 0; // Reset restart counter
-    
+    isRecordingRef.current = true;
     if (!recognitionRef.current) {
       recognitionRef.current = initRecognition();
     }
@@ -251,11 +194,16 @@ export const useSpeechRecognition = () => {
     }
 
     restartCountRef.current = 0; // Reset restart counter
+    isRecordingRef.current = false;
+
+    // When recording stops, publish the accumulated final transcript into state
+    const finalTranscript = accumulatedTranscriptRef.current.trim();
 
     setState(prev => ({ 
       ...prev, 
       isRecording: false, 
-      isListening: false 
+      isListening: false,
+      liveTranscript: finalTranscript,
     }));
   }, []);
 

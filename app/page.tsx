@@ -287,8 +287,8 @@ export default function Home() {
         />
       </Suspense>
 
-      {/* Header */}
-      <Header onGoToBooks={handleGoToBooks} />
+  {/* Header */}
+  <Header />
 
       {/* Confirmation Message */}
       {confirmationMessage && (
