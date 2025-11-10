@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
 import { cloudDBManager } from '../lib/cloudDB';
 import { Note } from '../lib/types';
@@ -191,12 +192,18 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
 
           {/* Horizontal layout: Book info on left, Record button on right */}
           <div className="flex items-center justify-between">
-            {/* Current book info */}
+            {/* Current book info (clickable) */}
             <div className="flex-1 pr-4">
-              <div className="text-xs text-gray-500 uppercase tracking-wide">Current Book</div>
-              <div className="text-sm font-medium text-gray-900 truncate">
-                {currentBook || 'No book selected'}
-              </div>
+              <Link href="/books" className="block rounded-md hover:bg-slate-50 transition-colors px-2 py-1" aria-label="Open books">
+
+                  <div className="min-w-0">
+                    <div className="text-xs text-gray-500 uppercase tracking-wide">Current Book</div>
+                    <div className="text-sm font-medium text-gray-900 truncate">
+                      {currentBook || 'No book selected'}
+                    </div>
+                  </div>
+
+              </Link>
             </div>
 
             {/* Recording button with status below */}
