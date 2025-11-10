@@ -124,15 +124,28 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
 
   return (
     <>
-      {/* Live transcription overlay - positioned above the recorder bar */}
+      {/* Recording visual overlay while capturing audio (we transcribe on stop) */}
       {isRecording && (
         <div className="fixed bottom-28 left-4 right-4 bg-white rounded-xl shadow-lg border p-4 max-h-32 overflow-y-auto z-40">
-          <div className="text-sm text-gray-600 mb-2">Live transcription:</div>
-          <div className="text-gray-900 min-h-[20px]">
-            {liveTranscript || (
-              <span className="text-gray-400 italic">Listening...</span>
-            )}
+          <div className="flex items-center gap-3">
+            <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" aria-hidden />
+            <div className="text-sm text-gray-700 font-medium">Recording…</div>
           </div>
+          <div className="text-xs text-gray-500 mt-2">Transcription will appear after you stop recording.</div>
+        </div>
+      )}
+
+      {/* Processing overlay: show after recording stops and we have a transcript that hasn't been saved yet */}
+      {!isRecording && liveTranscript.trim() && liveTranscript.trim() !== lastSavedTranscript && !isSaving && (
+        <div className="fixed bottom-28 left-4 right-4 bg-white rounded-xl shadow-lg border p-4 max-h-32 overflow-y-auto z-40">
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-blue-600 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden>
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <div className="text-sm text-gray-700 font-medium">Processing transcription…</div>
+          </div>
+          <div className="text-xs text-gray-500 mt-2">Saving and finalizing your note.</div>
         </div>
       )}
 
@@ -251,12 +264,10 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
               <div className={`text-xs mt-1 text-center font-medium ${
                 isRecording ? 'text-red-600' : 'text-gray-600'
               }`}>
-                {!currentBook 
+                {!currentBook
                   ? 'Select book'
-                  : isRecording 
-                    ? isListening 
-                      ? 'Tap to stop' 
-                      : 'Starting...'
+                  : isRecording
+                    ? 'Tap to stop'
                     : 'Tap to record'
                 }
               </div>
