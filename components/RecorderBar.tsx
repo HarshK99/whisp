@@ -33,6 +33,7 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastSavedTranscript, setLastSavedTranscript] = useState('');
   const [showSafariNotice, setShowSafariNotice] = useState(false);
+  // Recorder UI was reset: keyboard-sheet and mobile heuristics removed
 
   // Check if we should show Safari notice - only after user is logged in
   useEffect(() => {
@@ -69,10 +70,10 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
       return;
     }
 
+    // Minimal start/stop recording flow using the web Speech hook.
     if (isRecording) {
       stopRecording();
     } else {
-      // Reset the last saved transcript when starting a new recording
       setLastSavedTranscript('');
       clearTranscript();
       startRecording();
@@ -111,6 +112,8 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
       setIsSaving(false);
     }
   };
+
+  // Removed previous keyboard sheet focus retry and handlers during recorder reset
 
   if (!isSupported) {
     return (
@@ -173,6 +176,8 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
           </div>
         </div>
       )}
+
+      {/* Recorder UI reset: keyboard sheet removed */}
 
       {/* Recorder Bar - Fixed at bottom but not overlaying content */}
       <div className="fixed bottom-0 left-0 right-0 shadow-lg z-50">
