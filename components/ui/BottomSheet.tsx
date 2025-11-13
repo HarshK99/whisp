@@ -93,6 +93,10 @@ export default function BottomSheet({
       <div 
         className="w-full animate-slide-up"
         style={{ marginBottom: bottomMargin }}
+        // Prevent clicks/touches inside the sheet from bubbling to the backdrop
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
       >
         <Card 
           className={`w-full ${maxHeight} flex flex-col shadow-xl border-0`}
