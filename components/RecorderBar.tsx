@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSpeechRecognition } from '../lib/useSpeechRecognition';
 import { cloudDBManager } from '../lib/cloudDB';
@@ -12,9 +12,11 @@ interface RecorderBarProps {
   currentBook: string;
   onBookChange: () => void;
   onNoteSaved?: () => void;
+  // When true, show the voice recording UI. When false, show a keyboard input bar.
+  voice?: boolean;
 }
 
-export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: RecorderBarProps) {
+export default function RecorderBar({ currentBook, onBookChange, onNoteSaved, voice = false }: RecorderBarProps) {
   const { user } = useAuth();
   const {
     isRecording,
@@ -28,6 +30,10 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
     isSafari,
     getBrowserInfo,
   } = useSpeechRecognition();
+
+  // Local input state when `voice` mode is disabled
+  const [inputValue, setInputValue] = useState('');
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -57,12 +63,30 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
     }
   }, [user, isSafari]);
 
+  // Focus input when not in voice mode
+  useEffect(() => {
+    if (voice) return;
+    // small delay to allow layout
+    const t = setTimeout(() => {
+      try {
+        inputRef?.current?.focus();
+      } catch (e) {
+        // ignore
+      }
+    }, 200);
+    return () => clearTimeout(t);
+  }, [voice]);
+
   useEffect(() => {
     // Only save if recording stopped, we have a transcript, and it's different from the last saved one
-    if (!isRecording && liveTranscript.trim() && liveTranscript.trim() !== lastSavedTranscript && !isSaving) {
+    if (!voice && !isRecording && liveTranscript.trim() && liveTranscript.trim() !== lastSavedTranscript && !isSaving) {
+      // no-op when voice mode is disabled
+    }
+
+    if (voice && !isRecording && liveTranscript.trim() && liveTranscript.trim() !== lastSavedTranscript && !isSaving) {
       handleAutoSaveNote(liveTranscript.trim());
     }
-  }, [isRecording, liveTranscript, lastSavedTranscript, isSaving]);
+  }, [isRecording, liveTranscript, lastSavedTranscript, isSaving, voice]);
 
   const handleToggleRecording = () => {
     if (!currentBook) {
@@ -113,9 +137,46 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
     }
   };
 
+  const handleManualSave = async (text: string) => {
+    if (!text.trim() || !currentBook || isSaving) return;
+
+    setIsSaving(true);
+    try {
+      const note: Note = {
+        bookTitle: currentBook,
+        text: text.trim(),
+        createdAt: new Date(),
+      } as Note;
+
+      await cloudDBManager.saveNote(note as any);
+      await cloudDBManager.updateBookLastUsed(currentBook);
+
+      setInputValue('');
+      setLastSavedTranscript(text.trim());
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+      if (onNoteSaved) onNoteSaved();
+    } catch (err) {
+      console.error('Failed to save note:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!currentBook) {
+        onBookChange();
+        return;
+      }
+      await handleManualSave(inputValue);
+    }
+  };
+
   // Removed previous keyboard sheet focus retry and handlers during recorder reset
 
-  if (!isSupported) {
+  if (!isSupported && voice) {
     return (
       <div className="fixed bottom-0 left-0 right-0 bg-red-50 border-t border-red-200 p-4">
         <div className="text-center text-red-600 text-sm">
@@ -125,6 +186,27 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved }: 
     );
   }
 
+  if (!voice) {
+    // Render keyboard input bar
+    return (
+      <div className="fixed bottom-4 left-4 right-4 z-50">
+        <div className="bg-white/95 backdrop-blur-sm border border-slate-200 rounded-full p-2 shadow-lg">
+          <input
+            ref={inputRef}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={currentBook ? `Take a note in "${currentBook}"` : 'Select a book to take a note'}
+            className="w-full bg-transparent border-0 focus:outline-none px-4 py-3 rounded-full text-lg"
+            autoComplete="off"
+            aria-label="Take a note"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Voice mode: render the original recorder UI
   return (
     <>
       {/* Recording visual overlay while capturing audio (we transcribe on stop) */}

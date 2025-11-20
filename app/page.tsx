@@ -1,8 +1,9 @@
-'use client';
+ 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
 import RecorderBar from '../components/RecorderBar';
+import { useBookSelection } from '../components/BookSelectionProvider';
+import { useRouter } from 'next/navigation';
 import RecentNotes from '../components/RecentNotes';
 import EditNoteModal from '../components/EditNoteModal';
 import BookSelectionModal from '../components/BookSelectionModal';
@@ -21,14 +22,14 @@ import { useAuth } from '../lib/auth';
 export default function Home() {
   const { user, loading: authLoading } = useAuth();
   const [currentBook, setCurrentBook] = useState<string>('');
-  const [showBookPrompt, setShowBookPrompt] = useState(false);
+  const { showBookPrompt, setShowBookPrompt } = useBookSelection();
   const [newBookTitle, setNewBookTitle] = useState('');
   const [recentBooks, setRecentBooks] = useState<Book[]>([]);
   const [currentBookNotes, setCurrentBookNotes] = useState<Note[]>([]);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [editText, setEditText] = useState('');
   const [swipedNoteId, setSwipedNoteId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [confirmationMessage, setConfirmationMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isNotesLoaded, setIsNotesLoaded] = useState(false);
@@ -45,15 +46,29 @@ export default function Home() {
 
   useEffect(() => {
     if (user && !isInitialized) {
-      initializeApp();
-      // Reset cloudDBManager when user changes
-      cloudDBManager.reset();
+      const run = () => {
+        // mark DB init as running
+        initializeApp();
+        // Reset cloudDBManager when user changes
+        cloudDBManager.reset();
+      };
+
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        const id = (window as any).requestIdleCallback(run, { timeout: 1000 });
+        return () => (window as any).cancelIdleCallback(id);
+      } else {
+        const t = setTimeout(run, 500);
+        return () => clearTimeout(t);
+      }
     } else if (!user) {
       setIsLoading(false);
     }
   }, [user, isInitialized]);
 
+  // input focus is handled inside the RecorderBar component
+
   const initializeApp = async () => {
+    setIsLoading(true);
     try {
       await cloudDBManager.initDB();
       
@@ -272,10 +287,7 @@ export default function Home() {
     return <AuthModal />;
   }
 
-  // Don't render main content until initialization is complete
-  if (!isInitialized) {
-    return <LoadingScreen />;
-  }
+  // Allow initial render even while initialization runs in the background
 
   return (
     <PageLayout>
@@ -289,6 +301,8 @@ export default function Home() {
 
   {/* Header */}
   <Header />
+
+      {/* Top input was moved to a bottom-fixed bar so it behaves like the previous recorder */}
 
       {/* Confirmation Message */}
       {confirmationMessage && (
@@ -315,7 +329,7 @@ export default function Home() {
       )}
 
       {/* Main Content */}
-      <div className="px-4 py-6">
+      <div className="px-4 py-6 pb-28">
         {currentBook ? (
           <>
             {/* Show Ready to Record only when notes are loaded and there are none */}
@@ -367,11 +381,15 @@ export default function Home() {
         hasCurrentBook={!!currentBook}
       />
 
-      {/* Recorder Bar - Now positioned as sticky bottom element */}
-      <RecorderBar 
-        currentBook={currentBook} 
+      {/* Bottom input/recorder bar (component) */}
+      <RecorderBar
+        currentBook={currentBook}
         onBookChange={handleBookChange}
-        onNoteSaved={loadCurrentBookNotes}
+        onNoteSaved={async () => {
+          await loadCurrentBookNotes();
+          handleConfirmation('Note saved');
+        }}
+        voice={false}
       />
     </PageLayout>
   );
