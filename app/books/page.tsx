@@ -130,30 +130,34 @@ export default function BooksPage() {
           <div className="space-y-3">
             {books.map((book) => (
               <Card key={book.title} hover>
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-medium text-gray-900 text-lg">
-                      {book.title}
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Last used: {formatDate(book.lastUsed)}
-                    </p>
+                <button
+                  type="button"
+                  onClick={() => handleSelectBook(book.title)}
+                  className="w-full text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-medium text-gray-900 text-lg">
+                        {book.title}
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Last used: {formatDate(book.lastUsed)}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewNotes(book.title);
+                        }}
+                        className="px-3 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                      >
+                        View Notes
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleViewNotes(book.title)}
-                      className="px-3 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                    >
-                      View Notes
-                    </button>
-                    <button
-                      onClick={() => handleSelectBook(book.title)}
-                      className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Select
-                    </button>
-                  </div>
-                </div>
+                </button>
               </Card>
             ))}
           </div>
