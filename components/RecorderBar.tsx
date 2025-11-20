@@ -191,16 +191,39 @@ export default function RecorderBar({ currentBook, onBookChange, onNoteSaved, vo
     return (
       <div className="fixed bottom-4 left-4 right-4 z-50">
         <div className="bg-white/95 backdrop-blur-sm border border-slate-200 rounded-full p-2 shadow-lg">
-          <input
-            ref={inputRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={currentBook ? `Take a note in "${currentBook}"` : 'Select a book to take a note'}
-            className="w-full bg-transparent border-0 focus:outline-none px-4 py-3 rounded-full text-lg"
-            autoComplete="off"
-            aria-label="Take a note"
-          />
+          <div className="relative">
+            <input
+              ref={inputRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={currentBook ? `Take a note in "${currentBook}"` : 'Select a book to take a note'}
+              className="w-full bg-transparent border-0 focus:outline-none px-4 py-3 rounded-full text-lg pr-10"
+              autoComplete="off"
+              aria-label="Take a note"
+            />
+
+            {/* Subtle save icon: small, shows only when there's text */}
+            {inputValue.trim() && (
+              <button
+                onClick={async () => {
+                  if (!currentBook) {
+                    onBookChange();
+                    return;
+                  }
+                  await handleManualSave(inputValue);
+                }}
+                title="Save note"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-700"
+                aria-label="Save note"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 2L11 13" />
+                  <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
